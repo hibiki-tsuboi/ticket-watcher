@@ -4,6 +4,15 @@ on:
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
+    inputs:
+      iterations:
+        description: "実行回数（手動実行時、10秒間隔）"
+        required: false
+        default: "1"
+      interval_sec:
+        description: "間隔秒（手動実行時のsleep秒数）"
+        required: false
+        default: "10"
 
 jobs:
   watch:
@@ -29,5 +38,17 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           QUERY: 電池の切れかけた蟹
           NOTIFY_ALWAYS: 'false'
-        run: npm run start
-
+          SLACK_MENTION: ${{ vars.SLACK_MENTION }}
+          ITERATIONS: ${{ github.event.inputs.iterations || '1' }}
+          INTERVAL_SEC: ${{ github.event.inputs.interval_sec || '10' }}
+        run: |
+          iter=${ITERATIONS:-1}
+          interval=${INTERVAL_SEC:-10}
+          echo "Run iterations=${iter}, interval=${interval}s"
+          for i in $(seq 1 "$iter"); do
+            echo "["$(date)"] Run $i/$iter"
+            npm run start || true
+            if [ "$i" -lt "$iter" ]; then
+              sleep "$interval"
+            fi
+          done
