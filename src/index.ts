@@ -13,7 +13,9 @@ async function main() {
         found: result.found,
         query: config.query,
         url: result.url,
-        notes: result.note
+        notes: result.note,
+        available: result.available,
+        availableCount: result.availableCount
       },
       { mention: config.slackMention }
     );

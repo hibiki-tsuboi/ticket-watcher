@@ -5,13 +5,19 @@ export type HitResult = {
   query: string;
   url: string;
   notes?: string;
+  available?: boolean;
+  availableCount?: number;
 };
 
 export function buildSlackMessage(
   result: HitResult,
   opts?: { mention?: string }
 ): { text: string; link_names?: 1 } {
-  const title = result.found ? '✅ ヒットしました' : '🔎 ヒットなし';
+  const title = !result.found
+    ? ':x: ヒットなし'
+    : result.available === true
+    ? '✅ 発売中'
+    : ':x: 発売なし';
   const body = result.found
     ? `検索クエリ「${result.query}」に一致する結果が見つかりました。\nリンク: ${result.url}`
     : `検索クエリ「${result.query}」ではヒットが見つかりませんでした。`;

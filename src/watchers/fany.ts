@@ -4,6 +4,8 @@ export type SearchOutcome = {
   found: boolean;
   url: string;
   note?: string;
+  available?: boolean;
+  availableCount?: number;
 };
 
 const BASE_URL = 'https://ticket.fany.lol/';
@@ -32,7 +34,17 @@ export async function searchFany(query: string): Promise<SearchOutcome> {
       const cntText = (await resultCntSpan.textContent())?.trim() || '';
       const n = parseInt(cntText, 10);
       if (!Number.isNaN(n)) {
-        return { found: n > 0, url: page.url(), note: `検索結果 ${n}件` };
+        let availableCount = 0;
+        if (n > 0) {
+          availableCount = await page.locator('ul.fany_icon__sold').count();
+        }
+        return {
+          found: n > 0,
+          url: page.url(),
+          note: `検索結果 ${n}件` + (n > 0 ? ` / 発売中 ${availableCount}件` : ''),
+          available: n > 0 ? availableCount > 0 : false,
+          availableCount: n > 0 ? availableCount : 0
+        };
       }
     }
 
@@ -42,14 +54,32 @@ export async function searchFany(query: string): Promise<SearchOutcome> {
       const m = bodyText.match(/検索結果\s*(\d+)件/);
       if (m) {
         const n = parseInt(m[1], 10);
-        return { found: n > 0, url: page.url(), note: `検索結果 ${n}件` };
+        // 件数が0より大なら、発売中の有無も確認
+        let availableCount = 0;
+        if (n > 0) {
+          availableCount = await page.locator('ul.fany_icon__sold').count();
+        }
+        return {
+          found: n > 0,
+          url: page.url(),
+          note: `検索結果 ${n}件` + (n > 0 ? ` / 発売中 ${availableCount}件` : ''),
+          available: n > 0 ? availableCount > 0 : false,
+          availableCount: n > 0 ? availableCount : 0
+        };
       }
     }
 
     // フォールバック: event詳細リンク数で判定（main制限は外す）
     const eventLinks = await page.locator('a[href^="/event/"]').count();
     if (eventLinks > 0) {
-      return { found: true, url: page.url(), note: `eventリンク ${eventLinks}件` };
+      const availableCount = await page.locator('ul.fany_icon__sold').count();
+      return {
+        found: true,
+        url: page.url(),
+        note: `eventリンク ${eventLinks}件 / 発売中 ${availableCount}件`,
+        available: availableCount > 0,
+        availableCount
+      };
     }
 
     return { found: false, url: page.url(), note: '結果テキスト不明・リンクなし' };
