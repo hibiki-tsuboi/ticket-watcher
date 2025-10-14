@@ -21,7 +21,7 @@ make run
 3) GitHub Actions での定期実行
 
 - リポジトリの Secrets に `SLACK_WEBHOOK_URL` を登録してください。
-- 既定で 5 分間隔（`*/5 * * * *`）で実行されます。
+- 既定で 毎日 09:00 JST（`0 0 * * *`）で実行されます（Actions の cron は UTC 基準。`0 0 * * *` は 00:00 UTC = 09:00 JST）。
 
 ## 設定項目（環境変数）
 
