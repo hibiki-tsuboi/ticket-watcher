@@ -6,17 +6,8 @@ export type SearchOutcome = {
   note?: string;
 };
 
-const SITE_URL = 'https://ticket.fany.lol/';
-
-// サイト構造が変わっても耐えるよう、複数の候補セレクタを順に試す
-const searchInputSelectors = [
-  'input[type="search"]',
-  'input[name="keyword"]',
-  'input[name="q"]',
-  'input[placeholder*="検索"]',
-  'input[placeholder*="ｹﾝｻｸ"]',
-  'input[placeholder*="Search"]'
-];
+const BASE_URL = 'https://ticket.fany.lol/';
+const SEARCH_URL = (q: string) => `${BASE_URL}search/event?keywords=${encodeURIComponent(q)}`;
 
 export async function searchFany(query: string): Promise<SearchOutcome> {
   const browser = await chromium.launch({ headless: true });
@@ -24,67 +15,46 @@ export async function searchFany(query: string): Promise<SearchOutcome> {
   const page = await context.newPage();
 
   try {
-    await page.goto(SITE_URL, { waitUntil: 'domcontentloaded' });
+    // 検索専用URLに直接アクセス
+    await page.goto(SEARCH_URL(query), { waitUntil: 'domcontentloaded' });
 
-    let searchInputFound = false;
-    for (const sel of searchInputSelectors) {
-      const loc = page.locator(sel);
-      if (await loc.first().isVisible().catch(() => false)) {
-        await loc.first().fill(query);
-        // Enter で検索を発火
-        await loc.first().press('Enter');
-        searchInputFound = true;
-        break;
-      }
-    }
-
-    if (!searchInputFound) {
-      // 直接クエリパラメータでの検索も試す（典型的なパターン）
-      const fallbackUrls = [
-        `${SITE_URL}?s=${encodeURIComponent(query)}`,
-        `${SITE_URL}search?keyword=${encodeURIComponent(query)}`,
-        `${SITE_URL}search?q=${encodeURIComponent(query)}`
-      ];
-      for (const u of fallbackUrls) {
-        await page.goto(u, { waitUntil: 'domcontentloaded' });
-        if ((await page.content()).toLowerCase().includes(query.toLowerCase())) {
-          return { found: true, url: page.url(), note: 'URLベース検索のヒット' };
-        }
-      }
-      return { found: false, url: page.url(), note: '検索入力が見つかりませんでした' };
-    }
-
-    // 検索結果の描画完了待ち
+    // 結果のロード待機: networkidle か結果要素の出現、最大8秒
     await Promise.race([
       page.waitForLoadState('networkidle').catch(() => {}),
-      page.waitForTimeout(3000)
+      page.locator('.fany_g-title .fany_g-resultCnt').first().waitFor({ timeout: 8000 }).catch(() => {}),
+      page.locator('a[href^="/event/"]').first().waitFor({ timeout: 8000 }).catch(() => {}),
+      page.waitForTimeout(8000)
     ]);
 
-    // いくつかの否定パターン（日本語での典型）
-    const html = await page.content();
-    const lower = html.toLowerCase();
-    const noHitHints = ['該当', '見つかりません', 'ありません'];
-    const noHit = noHitHints.some((t) => lower.includes(t));
+    // DOMから件数を優先的に取得: <div class="fany_g-title"><span>検索結果</span><span class="fany_g-resultCnt"><span>1</span>件</span></div>
+    const resultCntSpan = page.locator('.fany_g-title .fany_g-resultCnt span').first();
+    if (await resultCntSpan.count()) {
+      const cntText = (await resultCntSpan.textContent())?.trim() || '';
+      const n = parseInt(cntText, 10);
+      if (!Number.isNaN(n)) {
+        return { found: n > 0, url: page.url(), note: `検索結果 ${n}件` };
+      }
+    }
 
-    // クエリ語が結果に含まれている or それらしいカード/リンクが存在するか
-    const titleHit = await page.locator(`text=${query}`).count();
-    const cardHit = await page
-      .locator(
-        [
-          '[class*="card"]',
-          '[class*="result"]',
-          '[class*="list"] a',
-          'a[href*="event" i]',
-          'a[href*="show" i]'
-        ].join(', ')
-      )
-      .count();
+    // フォールバック: bodyテキストから「検索結果 n件」を抽出
+    const bodyText = await page.evaluate(() => document.body.innerText || '');
+    {
+      const m = bodyText.match(/検索結果\s*(\d+)件/);
+      if (m) {
+        const n = parseInt(m[1], 10);
+        return { found: n > 0, url: page.url(), note: `検索結果 ${n}件` };
+      }
+    }
 
-    const found = !noHit && (titleHit > 0 || cardHit > 0);
-    return { found, url: page.url(), note: found ? 'コンテンツマッチ' : 'ヒットなし推定' };
+    // フォールバック: event詳細リンク数で判定（main制限は外す）
+    const eventLinks = await page.locator('a[href^="/event/"]').count();
+    if (eventLinks > 0) {
+      return { found: true, url: page.url(), note: `eventリンク ${eventLinks}件` };
+    }
+
+    return { found: false, url: page.url(), note: '結果テキスト不明・リンクなし' };
   } finally {
     await context.close();
     await browser.close();
   }
 }
-
