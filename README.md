@@ -1,6 +1,6 @@
 # ticket-watcher
 
-チケットサイト（FANY）で「電池の切れかけた蟹」のヒット有無を10分おきにチェックし、Slackへ通知します。Playwright + TypeScript で実装し、GitHub Actions で定期実行します。
+チケットサイト（FANY）で「電池の切れかけた蟹」のヒット有無を毎日 09:00（JST）にチェックし、Slackへ通知します。Playwright + TypeScript で実装し、GitHub Actions で定期実行します。
 
 ## 使い方
 
@@ -22,6 +22,7 @@ make run
 
 - リポジトリの Secrets に `SLACK_WEBHOOK_URL` を登録してください。
 - 既定で 毎日 09:00 JST（`0 0 * * *`）で実行されます（Actions の cron は UTC 基準。`0 0 * * *` は 00:00 UTC = 09:00 JST）。
+- 実行タイミングを変更したい場合は `.github/workflows/watch.yml` の `schedule` を編集してください。
 
 ## 設定項目（環境変数）
 
