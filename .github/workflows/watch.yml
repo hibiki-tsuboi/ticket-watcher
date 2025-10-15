@@ -2,8 +2,8 @@ name: Watch Tickets
 
 on:
   schedule:
-    # 03:00 UTC = 12:00 JST 毎日実行
-    - cron: '0 3 * * *'
+    # テスト用: 10分おきに実行
+    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 jobs:
