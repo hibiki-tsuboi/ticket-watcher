@@ -2,8 +2,8 @@ name: Watch Tickets
 
 on:
   schedule:
-    # 1時間おきに実行
-    - cron: '0 * * * *'
+    # 毎朝8:00 JST (23:00 UTC) に実行
+    - cron: '0 23 * * *'
   workflow_dispatch:
 
 jobs:
