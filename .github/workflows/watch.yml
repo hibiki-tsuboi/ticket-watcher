@@ -2,8 +2,8 @@ name: Watch Tickets
 
 on:
   schedule:
-    # 00:00 UTC = 09:00 JST 毎日実行
-    - cron: '0 0 * * *'
+    # 02:00 UTC = 11:00 JST 毎日実行
+    - cron: '0 2 * * *'
   workflow_dispatch:
 
 jobs:
@@ -31,4 +31,3 @@ jobs:
           SLACK_MENTION: ${{ vars.SLACK_MENTION }}
         run: |
           npm run start
-
